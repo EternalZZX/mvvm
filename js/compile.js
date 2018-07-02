@@ -1,106 +1,90 @@
-function Compile(el, vm) {
-    this.$vm = vm;
-    this.$el = this.isElementNode(el) ? el : document.querySelector(el);
-
-    if (this.$el) {
-        this.$fragment = this.node2Fragment(this.$el);
-        this.init();
-        this.$el.appendChild(this.$fragment);
+class Compile {
+    constructor (el, vm) {
+        this.$vm = vm;
+        this.$el = Compile.isElementNode(el) ? el : document.querySelector(el);
+        if (this.$el) {
+            this.$fragment = this.node2Fragment(this.$el);
+            this.compileElement(this.$fragment);
+            this.$el.appendChild(this.$fragment);
+        }
     }
-}
 
-Compile.prototype = {
-    node2Fragment: function(el) {
-        var fragment = document.createDocumentFragment(),
+    node2Fragment (el) {
+        let fragment = document.createDocumentFragment(),
             child;
-
-        // 将原生节点拷贝到fragment
         while (child = el.firstChild) {
             fragment.appendChild(child);
         }
-
         return fragment;
-    },
+    }
 
-    init: function() {
-        this.compileElement(this.$fragment);
-    },
-
-    compileElement: function(el) {
-        var childNodes = el.childNodes,
-            me = this;
-
-        [].slice.call(childNodes).forEach(function(node) {
-            var text = node.textContent;
-            var reg = /\{\{(.*)\}\}/;
-
-            if (me.isElementNode(node)) {
-                me.compile(node);
-
-            } else if (me.isTextNode(node) && reg.test(text)) {
-                me.compileText(node, RegExp.$1);
+    compileElement (el) {
+        for (const node of [].slice.call(el.childNodes)) {
+            if (Compile.isElementNode(node)) {
+                this.compile(node);
+            } else if (Compile.isTextNode(node) && /\{\{(.*)\}\}/.test(node.textContent)) {
+                this.compileText(node, RegExp.$1);
             }
-
             if (node.childNodes && node.childNodes.length) {
-                me.compileElement(node);
+                this.compileElement(node);
             }
-        });
-    },
+        }
+    }
 
-    compile: function(node) {
+    compile (node) {
         var nodeAttrs = node.attributes,
             me = this;
 
         [].slice.call(nodeAttrs).forEach(function(attr) {
             var attrName = attr.name;
-            if (me.isDirective(attrName)) {
+            if (Compile.isDirective(attrName)) {
                 var exp = attr.value;
                 var dir = attrName.substring(2);
                 // 事件指令
-                if (me.isEventDirective(dir)) {
-                    compileUtil.eventHandler(node, me.$vm, exp, dir);
+                if (Compile.isEventDirective(dir)) {
+                    CompileUtil.eventHandler(node, me.$vm, exp, dir);
                     // 普通指令
                 } else {
-                    compileUtil[dir] && compileUtil[dir](node, me.$vm, exp);
+                    CompileUtil[dir] && CompileUtil[dir](node, me.$vm, exp);
                 }
 
                 node.removeAttribute(attrName);
             }
         });
-    },
+    }
 
-    compileText: function(node, exp) {
-        compileUtil.text(node, this.$vm, exp);
-    },
+    compileText (node, exp) {
+        CompileUtil.text(node, this.$vm, exp);
+    }
 
-    isDirective: function(attr) {
+    static isDirective (attr) {
         return attr.indexOf('v-') == 0;
-    },
+    }
 
-    isEventDirective: function(dir) {
+    static isEventDirective (dir) {
         return dir.indexOf('on') === 0;
-    },
+    }
 
-    isElementNode: function(node) {
+    static isElementNode (node) {
         return node.nodeType == 1;
-    },
+    }
 
-    isTextNode: function(node) {
+    static isTextNode (node) {
         return node.nodeType == 3;
     }
 };
 
 // 指令处理集合
-var compileUtil = {
-    text: function(node, vm, exp) {
+class CompileUtil {
+    static text (node, vm, exp) {
         this.bind(node, vm, exp, 'text');
-    },
+    }
 
-    html: function(node, vm, exp) {
+    static html (node, vm, exp) {
         this.bind(node, vm, exp, 'html');
-    },
+    }
 
-    model: function(node, vm, exp) {
+    static model (node, vm, exp) {
         this.bind(node, vm, exp, 'model');
 
         var me = this,
@@ -114,42 +98,42 @@ var compileUtil = {
             me._setVMVal(vm, exp, newValue);
             val = newValue;
         });
-    },
+    }
 
-    class: function(node, vm, exp) {
+    static class (node, vm, exp) {
         this.bind(node, vm, exp, 'class');
-    },
+    }
 
-    bind: function(node, vm, exp, dir) {
-        var updaterFn = updater[dir + 'Updater'];
+    static bind (node, vm, exp, dir) {
+        var updaterFn = Updater[dir + 'Updater'];
 
         updaterFn && updaterFn(node, this._getVMVal(vm, exp));
 
         new Watcher(vm, exp, function(value, oldValue) {
             updaterFn && updaterFn(node, value, oldValue);
         });
-    },
+    }
 
     // 事件处理
-    eventHandler: function(node, vm, exp, dir) {
+    static eventHandler (node, vm, exp, dir) {
         var eventType = dir.split(':')[1],
             fn = vm.$options.methods && vm.$options.methods[exp];
 
         if (eventType && fn) {
             node.addEventListener(eventType, fn.bind(vm), false);
         }
-    },
+    }
 
-    _getVMVal: function(vm, exp) {
+    static _getVMVal (vm, exp) {
         var val = vm;
         exp = exp.split('.');
         exp.forEach(function(k) {
             val = val[k];
         });
         return val;
-    },
+    }
 
-    _setVMVal: function(vm, exp, value) {
+    static _setVMVal (vm, exp, value) {
         var val = vm;
         exp = exp.split('.');
         exp.forEach(function(k, i) {
@@ -163,26 +147,25 @@ var compileUtil = {
     }
 };
 
-
-var updater = {
-    textUpdater: function(node, value) {
+class Updater {
+    static textUpdater (node, value) {
         node.textContent = typeof value == 'undefined' ? '' : value;
-    },
+    }
 
-    htmlUpdater: function(node, value) {
+    static htmlUpdater (node, value) {
         node.innerHTML = typeof value == 'undefined' ? '' : value;
-    },
+    }
 
-    classUpdater: function(node, value, oldValue) {
+    static classUpdater (node, value, oldValue) {
         var className = node.className;
         className = className.replace(oldValue, '').replace(/\s$/, '');
 
         var space = className && String(value) ? ' ' : '';
 
         node.className = className + space + value;
-    },
+    }
 
-    modelUpdater: function(node, value, oldValue) {
+    static modelUpdater (node, value, oldValue) {
         node.value = typeof value == 'undefined' ? '' : value;
     }
 };

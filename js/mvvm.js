@@ -1,52 +1,43 @@
-function MVVM(options) {
-    this.$options = options || {};
-    var data = this._data = this.$options.data;
-    var me = this;
+class MVVM {
+    constructor (options) {
+        this.$options = options || {};
+        let data = this._data = this.$options.data;
+        for (const key of Object.keys(data)) {
+            this._proxyData(key);
+        };
+        this._initComputed();
+        observerFactory(data);
 
-    // 数据代理
-    // 实现 vm.xxx -> vm._data.xxx
-    Object.keys(data).forEach(function(key) {
-        me._proxyData(key);
-    });
+        this.$compile = new Compile(options.el || document.body, this)
+    }
 
-    this._initComputed();
-
-    observe(data, this);
-
-    this.$compile = new Compile(options.el || document.body, this)
-}
-
-MVVM.prototype = {
-    $watch: function(key, cb, options) {
+    $watch (key, cb, options) {
         new Watcher(this, key, cb);
-    },
+    }
 
-    _proxyData: function(key, setter, getter) {
-        var me = this;
-        setter = setter || 
-        Object.defineProperty(me, key, {
+    _proxyData (key) {
+        Object.defineProperty(this, key, {
             configurable: false,
             enumerable: true,
-            get: function proxyGetter() {
-                return me._data[key];
+            get () {
+                return this._data[key];
             },
-            set: function proxySetter(newVal) {
-                me._data[key] = newVal;
+            set (newVal) {
+                this._data[key] = newVal;
             }
         });
-    },
+    }
 
-    _initComputed: function() {
-        var me = this;
-        var computed = this.$options.computed;
-        if (typeof computed === 'object') {
-            Object.keys(computed).forEach(function(key) {
-                Object.defineProperty(me, key, {
-                    get: typeof computed[key] === 'function' 
-                            ? computed[key] 
-                            : computed[key].get,
-                    set: function() {}
-                });
+    _initComputed () {
+        const computed = this.$options.computed;
+        if (typeof computed !== 'object') {
+            return;
+        }
+        for (const key of Object.keys(computed)) {
+            Object.defineProperty(this, key, {
+                get: typeof computed[key] === 'function' ?
+                    computed[key] : computed[key].get,
+                set: () => {}
             });
         }
     }

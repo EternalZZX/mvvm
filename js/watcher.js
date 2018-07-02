@@ -1,31 +1,33 @@
-function Watcher(vm, expOrFn, cb) {
-    this.cb = cb;
-    this.vm = vm;
-    this.expOrFn = expOrFn;
-    this.depIds = {};
+class Watcher {
+    constructor (vm, expOrFn, cb) {
+        this.cb = cb;
+        this.vm = vm;
+        this.expOrFn = expOrFn;
+        this.depIds = {};
 
-    if (typeof expOrFn === 'function') {
-        this.getter = expOrFn;
-    } else {
-        this.getter = this.parseGetter(expOrFn);
+        if (typeof expOrFn === 'function') {
+            this.getter = expOrFn;
+        } else {
+            this.getter = this.parseGetter(expOrFn);
+        }
+
+        this.value = this.get();
     }
 
-    this.value = this.get();
-}
-
-Watcher.prototype = {
-    update: function() {
+    update () {
         this.run();
-    },
-    run: function() {
+    }
+
+    run () {
         var value = this.get();
         var oldVal = this.value;
         if (value !== oldVal) {
             this.value = value;
             this.cb.call(this.vm, value, oldVal);
         }
-    },
-    addDep: function(dep) {
+    }
+
+    addDep (dep) {
         // 1. 每次调用run()的时候会触发相应属性的getter
         // getter里面会触发dep.depend()，继而触发这里的addDep
         // 2. 假如相应属性的dep.id已经在当前watcher的depIds里，说明不是一个新的属性，仅仅是改变了其值而已
@@ -44,15 +46,16 @@ Watcher.prototype = {
             dep.addSub(this);
             this.depIds[dep.id] = dep;
         }
-    },
-    get: function() {
+    }
+
+    get () {
         Dep.target = this;
         var value = this.getter.call(this.vm, this.vm);
         Dep.target = null;
         return value;
-    },
+    }
 
-    parseGetter: function(exp) {
+    parseGetter (exp) {
         if (/[^\w.$]/.test(exp)) return; 
 
         var exps = exp.split('.');
